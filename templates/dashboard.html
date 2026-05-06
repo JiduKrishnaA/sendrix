@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Send</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container fade-in">
+        <div class="dash-header">
+            <div>
+                <h1 style="margin-bottom: 0.2rem;">SENDRIX</h1>
+                <div style="color: var(--text-secondary); font-size: 1.1rem; letter-spacing: 0;">Welcome, {{ username }}</div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <a href="{{ url_for('upload') }}" class="btn btn-small" style="text-decoration: none;">+ Upload File</a>
+                <a href="{{ url_for('hub') }}" class="btn btn-outline btn-small" style="text-decoration: none;">🌍 Hub</a>
+                <a href="{{ url_for('clipboard') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Clipboard</a>
+                <a href="{{ url_for('history') }}" class="btn btn-outline btn-small" style="text-decoration: none;">History</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Logout</a>
+            </div>
+        </div>
+
+        <div id="tables-container">
+            {% include 'dashboard_tables.html' %}
+        </div>
+    </div>
+    
+    <footer class="app-footer fade-in">
+        <div class="footer-content">
+            <p>&copy; 2026 SENDRIX. All rights reserved.</p>
+            <p>About: Advanced Secure File Transfer Protocol</p>
+            <p>Dev: ajkrishna002@gmail.com | Insta: <a href="https://instagram.com/jidkrsh" target="_blank">@jidkrsh</a></p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        function fetchUpdates() {
+            fetch("{{ url_for('api_dashboard') }}")
+                .then(response => response.text())
+                .then(html => {
+                    const container = document.getElementById('tables-container');
+                    if (container && html.trim() !== container.innerHTML.trim()) {
+                        container.innerHTML = html;
+                    }
+                })
+                .catch(err => console.error('Failed to fetch updates:', err));
+        }
+        setInterval(fetchUpdates, 2000);
+    </script>
+</body>
+</html>

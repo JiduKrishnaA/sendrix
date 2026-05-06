@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Sendrix</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Admin-specific overrides */
+        :root {
+            --admin-red: #ff3b3b;
+            --admin-red-dim: rgba(255, 59, 59, 0.15);
+            --admin-red-border: rgba(255, 59, 59, 0.3);
+        }
+
+        body {
+            align-items: flex-start;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--admin-red-border);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .admin-title-group h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, #ff5555, #ff9999);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .admin-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff3b3b, #991111);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            text-transform: uppercase;
+            margin-left: 0.75rem;
+            vertical-align: middle;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 59, 59, 0.05);
+            border: 1px solid var(--admin-red-border);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            text-align: center;
+        }
+
+        .stat-card .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #ff5555;
+            display: block;
+        }
+
+        .stat-card .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 0.75rem 1.2rem;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--admin-red-border);
+            border-radius: 10px;
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--admin-red);
+            box-shadow: 0 0 12px rgba(255, 59, 59, 0.15);
+        }
+
+        .btn-del {
+            background: transparent;
+            border: 1px solid #555;
+            color: #aaa;
+            padding: 0.45rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+            font-family: inherit;
+            font-weight: 800;
+        }
+
+        .btn-del:hover {
+            background: rgba(255, 59, 59, 0.15);
+            border-color: var(--admin-red);
+            color: #ff5555;
+        }
+
+        .btn-del-all {
+            background: rgba(255, 59, 59, 0.1);
+            border: 1px solid var(--admin-red-border);
+            color: #ff5555;
+            padding: 0.6rem 1.4rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: inherit;
+            font-weight: 800;
+        }
+
+        .btn-del-all:hover {
+            background: rgba(255, 59, 59, 0.25);
+            box-shadow: 0 0 15px rgba(255, 59, 59, 0.2);
+        }
+
+        .btn-logout-admin {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-secondary);
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-decoration: none;
+            display: inline-block;
+            font-family: inherit;
+            font-weight: 800;
+        }
+
+        .btn-logout-admin:hover {
+            border-color: rgba(255,255,255,0.5);
+            color: #fff;
+            text-shadow: none;
+        }
+
+        .file-size-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .orphan-badge {
+            background: rgba(255, 59, 59, 0.15);
+            border: 1px solid rgba(255, 59, 59, 0.3);
+            color: #ff7777;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .no-files {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 3rem;
+            font-size: 1rem;
+        }
+
+        .btn-nuke {
+            background: rgba(255, 20, 20, 0.15);
+            border: 1px solid rgba(255, 20, 20, 0.6);
+            color: #ff4444;
+            padding: 0.6rem 1.4rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .btn-nuke:hover {
+            background: rgba(255, 20, 20, 0.35);
+            border-color: #ff1111;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.35);
+            color: #ff8888;
+        }
+
+        .btn-preview {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ccc;
+            padding: 0.45rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .btn-preview:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: #fff;
+        }
+
+        @media (max-width: 600px) {
+            .admin-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container fade-in">
+
+        <!-- Admin Header -->
+        <div class="admin-header">
+            <div class="admin-title-group">
+                <h1>SENDRIX <span class="admin-badge">Admin</span></h1>
+                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">Storage Management Panel</div>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <a href="{{ url_for('dashboard') }}" class="btn-logout-admin">← User Dashboard</a>
+                <a href="{{ url_for('admin_logout') }}" class="btn-logout-admin" onclick="return confirm('Log out of Admin Panel?')">Logout</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="flash" style="background: rgba(255,59,59,0.1); border-color: rgba(255,59,59,0.3); margin-bottom: 1.5rem;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-value">{{ total_files }}</span>
+                <div class="stat-label">Total Files on Disk</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{ total_size }}</span>
+                <div class="stat-label">Total Storage Used</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" style="color: #ff7777;">{{ orphan_count }}</span>
+                <div class="stat-label">Orphan Files (No DB Record)</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" style="color: #aaa;">{{ db_file_count }}</span>
+                <div class="stat-label">Files Tracked in DB</div>
+            </div>
+        </div>
+
+        <!-- Search + Bulk Delete -->
+        <div class="search-bar">
+            <input type="text" id="file-search" placeholder="Search files by name..." oninput="filterFiles()">
+            <form action="{{ url_for('admin_delete_all') }}" method="POST" style="margin: 0;" onsubmit="return confirm('⚠️ Delete ALL orphaned files? This cannot be undone.')">
+                <button type="submit" class="btn-del-all">🗑 Delete Orphans</button>
+            </form>
+            <form action="{{ url_for('admin_delete_all_files') }}" method="POST" style="margin: 0;" onsubmit="return confirm('☢️ NUKE ALL FILES?\n\nThis will permanently delete EVERY file in the uploads folder and clear all database records.\n\nThis cannot be undone. Are you absolutely sure?')">
+                <button type="submit" class="btn-nuke">☢️ Nuke All Files</button>
+            </form>
+        </div>
+
+        <!-- File Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Uploader</th>
+                        <th>Recipient</th>
+                        <th>Status</th>
+                        <th>Modified</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="file-table-body">
+                    {% for f in files %}
+                    <tr class="file-row">
+                        <td data-label="Filename" style="font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ f.name }}
+                            {% if f.is_orphan %}
+                            <span class="orphan-badge" title="Not tracked in database">ORPHAN</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Size"><span class="file-size-badge">{{ f.size }}</span></td>
+                        <td data-label="Uploader" style="color: var(--text-secondary);">{{ f.uploader or '—' }}</td>
+                        <td data-label="Recipient" style="color: var(--text-secondary);">{{ f.recipient or '—' }}</td>
+                        <td data-label="Status">
+                            {% if f.status %}
+                            <span class="status-badge status-{{ f.status }}">{{ f.status }}</span>
+                            {% else %}
+                            <span class="orphan-badge">orphan</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Modified" style="color: var(--text-secondary); font-size: 0.85rem;">{{ f.modified }}</td>
+                        <td data-label="Action">
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button type="button" class="btn-preview" onclick="openPreview('{{ f.name }}', '{{ f.size }}')">👁 Preview</button>
+                                <form action="{{ url_for('admin_delete_file', filename=f.name) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Delete {{ f.name }}? This action is permanent.')">
+                                    <button type="submit" class="btn-del">🗑 Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not files %}
+                    <tr>
+                        <td colspan="7" class="no-files">✅ Upload folder is empty — no files to manage.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:1rem;">
+        <div id="preview-box" style="background:#0e0e12; border:1px solid rgba(255,59,59,0.3); border-radius:20px; width:100%; max-width:900px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow: 0 30px 80px rgba(0,0,0,0.8);">
+            <!-- Modal Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:1.2rem 1.5rem; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
+                <div>
+                    <div id="preview-filename" style="font-weight:800; font-size:1rem; color:#fff; word-break:break-all;"></div>
+                    <div id="preview-meta" style="color:var(--text-secondary); font-size:0.8rem; margin-top:0.2rem;"></div>
+                </div>
+                <button onclick="closePreview()" style="background:rgba(255,59,59,0.15); border:1px solid rgba(255,59,59,0.4); color:#ff5555; border-radius:8px; padding:0.4rem 0.8rem; cursor:pointer; font-family:inherit; font-weight:800; font-size:0.9rem; flex-shrink:0; margin-left:1rem;">✕ Close</button>
+            </div>
+            <!-- Modal Body -->
+            <div id="preview-body" style="flex:1; overflow:auto; padding:1.5rem; display:flex; align-items:center; justify-content:center; min-height:300px;">
+                <div id="preview-loading" style="color:var(--text-secondary); font-size:1rem;">⏳ Loading preview...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        function filterFiles() {
+            const query = document.getElementById('file-search').value.toLowerCase();
+            const rows = document.querySelectorAll('.file-row');
+            rows.forEach(row => {
+                const name = row.querySelector('td').innerText.toLowerCase();
+                row.style.display = name.includes(query) ? '' : 'none';
+            });
+        }
+
+        const IMAGE_EXTS = ['jpg','jpeg','png','gif','webp','svg','bmp','ico'];
+        const VIDEO_EXTS = ['mp4','webm','ogg','mov','mkv'];
+        const AUDIO_EXTS = ['mp3','wav','ogg','flac','aac','m4a'];
+        const TEXT_EXTS  = ['txt','md','csv','json','xml','html','htm','js','css','py','sh','bat','yaml','yml','ini','cfg','log','sql','ts','c','cpp','h','java'];
+
+        function getExt(name) {
+            return name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+        }
+
+        function formatBytes(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+            return (b/1048576).toFixed(1) + ' MB';
+        }
+
+        function openPreview(filename, size) {
+            const modal = document.getElementById('preview-modal');
+            const body  = document.getElementById('preview-body');
+            modal.style.display = 'flex';
+            document.getElementById('preview-filename').textContent = filename;
+            document.getElementById('preview-meta').textContent = size;
+            body.innerHTML = '<div id="preview-loading" style="color:var(--text-secondary);">⏳ Loading preview...</div>';
+
+            const ext = getExt(filename);
+            const url = `/admin/preview/${encodeURIComponent(filename)}`;
+
+            if (IMAGE_EXTS.includes(ext)) {
+                body.innerHTML = '';
+                const img = document.createElement('img');
+                img.alt = filename;
+                img.style.cssText = 'max-width:100%; max-height:70vh; border-radius:12px; object-fit:contain;';
+                img.onerror = () => {
+                    body.innerHTML = '<div style="color:#ff5555;">❌ Could not load image.</div>';
+                };
+                body.appendChild(img);
+                img.src = url; // set src AFTER appending so onerror can replace body
+
+
+            } else if (VIDEO_EXTS.includes(ext)) {
+                body.innerHTML = `
+                    <video controls style="max-width:100%; max-height:70vh; border-radius:12px; background:#000;">
+                        <source src="${url}">
+                        Your browser does not support this video format.
+                    </video>`;
+
+            } else if (AUDIO_EXTS.includes(ext)) {
+                body.innerHTML = `
+                    <div style="text-align:center; width:100%;">
+                        <div style="font-size:4rem; margin-bottom:1.5rem;">🎵</div>
+                        <div style="color:#fff; margin-bottom:1rem; font-weight:800;">${filename}</div>
+                        <audio controls style="width:100%; max-width:500px;">
+                            <source src="${url}">
+                            Your browser does not support audio playback.
+                        </audio>
+                    </div>`;
+
+            } else if (ext === 'pdf') {
+                body.innerHTML = `<iframe src="${url}" style="width:100%; height:70vh; border:none; border-radius:8px;"></iframe>`;
+
+            } else if (TEXT_EXTS.includes(ext)) {
+                fetch(`/admin/preview-content/${encodeURIComponent(filename)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.error) { body.innerHTML = `<div style="color:#ff5555;">❌ ${data.error}</div>`; return; }
+                        const pre = document.createElement('pre');
+                        pre.style.cssText = 'width:100%; max-height:65vh; overflow:auto; background:rgba(0,0,0,0.5); padding:1.2rem; border-radius:10px; font-size:0.82rem; color:#e0e0e0; line-height:1.6; white-space:pre-wrap; word-break:break-word; margin:0; border:1px solid rgba(255,255,255,0.07);';
+                        pre.textContent = data.content;
+                        body.innerHTML = '';
+                        body.appendChild(pre);
+                    })
+                    .catch(() => body.innerHTML = '<div style="color:#ff5555;">❌ Failed to load content.</div>');
+
+            } else if (ext === 'zip') {
+                fetch(`/admin/preview-content/${encodeURIComponent(filename)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.error) { body.innerHTML = `<div style="color:#ff5555;">❌ ${data.error}</div>`; return; }
+                        let html = `<div style="width:100%;"><div style="color:var(--text-secondary); margin-bottom:1rem; font-size:0.85rem;">📦 ${data.count} item(s) inside archive</div>`;
+                        html += '<div style="max-height:60vh; overflow-y:auto;">';
+                        data.entries.forEach(e => {
+                            const icon = e.is_dir ? '📁' : '📄';
+                            html += `<div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">`;
+                            html += `<span style="color:#ddd; font-size:0.85rem;">${icon} ${e.name}</span>`;
+                            html += `<span style="color:var(--text-secondary); font-size:0.78rem; margin-left:1rem; flex-shrink:0;">${formatBytes(e.size)}</span>`;
+                            html += `</div>`;
+                        });
+                        html += '</div></div>';
+                        body.innerHTML = html;
+                    })
+                    .catch(() => body.innerHTML = '<div style="color:#ff5555;">❌ Failed to read zip.</div>');
+
+            } else {
+                body.innerHTML = `
+                    <div style="text-align:center; color:var(--text-secondary);">
+                        <div style="font-size:3rem; margin-bottom:1rem;">🚫</div>
+                        <div style="font-size:1rem;">No preview available for <strong style="color:#fff;">.${ext || 'this file type'}</strong></div>
+                        <div style="font-size:0.85rem; margin-top:0.5rem;">Supported: images, video, audio, PDF, text/code, zip</div>
+                    </div>`;
+            }
+        }
+
+        function closePreview() {
+            const modal = document.getElementById('preview-modal');
+            modal.style.display = 'none';
+            document.getElementById('preview-body').innerHTML = '';
+        }
+
+        // Close on backdrop click
+        document.getElementById('preview-modal').addEventListener('click', function(e) {
+            if (e.target === this) closePreview();
+        });
+
+        // Close on Escape
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+    </script>
+</body>
+</html>

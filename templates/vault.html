@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Access | Sendrix</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .pin-input {
+            text-align: center;
+            font-size: 2rem;
+            letter-spacing: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 215, 0, 0.4);
+            border-radius: 12px;
+            color: #ffd700;
+            padding: 1rem;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        .pin-input:focus {
+            border-color: #ffd700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+        .vault-icon {
+            font-size: 4rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container fade-in" style="width: 100%; max-width: 460px; margin: 0; border: 1px solid rgba(255, 215, 0, 0.2); box-shadow: 0 8px 32px rgba(255, 215, 0, 0.05);">
+        
+        <div class="vault-icon">🔒</div>
+        <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem; text-align: center; color: #ffd700;">Vault Lock</h2>
+        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem;">This file is protected. Enter the PIN provided by the sender to access it.</p>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="flash" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); margin-bottom: 1.5rem; animation: shake 0.3s ease;">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('vault_unlock', file_id=file_id) }}" method="POST">
+            <div class="form-group">
+                <input type="text" name="pin" class="pin-input" placeholder="· · · ·" maxlength="20" required autofocus autocomplete="off">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 1rem; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700;">Unlock & Download</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem;">
+            <a href="{{ url_for('dashboard') }}" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem;">← Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+    </style>
+</body>
+</html>

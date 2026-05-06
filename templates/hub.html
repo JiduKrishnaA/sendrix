@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Hub | Sendrix</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container fade-in">
+        <div class="dash-header">
+            <div>
+                <h1 style="margin-bottom: 0.2rem;">SENDRIX</h1>
+                <div style="color: var(--text-secondary); font-size: 1.1rem; letter-spacing: 0;">Network Hub 🌍</div>
+            </div>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Dashboard</a>
+                <a href="{{ url_for('upload') }}" class="btn btn-outline btn-small" style="text-decoration: none;">+ Upload File</a>
+                <a href="{{ url_for('clipboard') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Clipboard</a>
+                <a href="{{ url_for('history') }}" class="btn btn-outline btn-small" style="text-decoration: none;">History</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Logout</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="flash" style="margin-bottom: 1rem;">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- Broadcast Upload Section -->
+        <div class="glass-container" style="margin-bottom: 2rem;">
+            <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">Broadcast to Network</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">Files uploaded here are visible and downloadable by <strong>everyone</strong> on the SENDRIX network.</p>
+            <form action="{{ url_for('hub_upload') }}" method="POST" enctype="multipart/form-data" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="file" name="file" multiple id="hub-file-input" style="display: none;">
+                    <button type="button" onclick="document.getElementById('hub-file-input').click()" class="btn btn-outline" style="width: 100%;" id="hub-file-btn">Select File(s) to Broadcast</button>
+                </div>
+                <button type="submit" class="btn" style="white-space: nowrap;">📡 Broadcast</button>
+            </form>
+        </div>
+
+        <!-- Public File List -->
+        <h2 style="text-align: left; margin-bottom: 1rem; font-size: 1.8rem; background: none; -webkit-text-fill-color: var(--text-primary);">Available Files <span style="font-size: 1rem; color: var(--text-secondary);">({{ hub_files|length }} files)</span></h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Shared By</th>
+                        <th>Date</th>
+                        <th>Downloads</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in hub_files %}
+                    <tr>
+                        <td data-label="Filename" style="font-weight: 600;">{{ file[1] }}</td>
+                        <td data-label="Shared By" style="color: var(--text-secondary);">{{ file[2] }}</td>
+                        <td data-label="Date" style="color: var(--text-secondary); font-size: 0.9rem;">{{ file[3] }}</td>
+                        <td data-label="Downloads" style="color: var(--text-secondary);">⬇ {{ file[4] }}</td>
+                        <td data-label="Action">
+                            <div class="actions">
+                                <a href="{{ url_for('hub_download', file_id=file[0]) }}" class="btn btn-small" style="text-decoration: none;">Download</a>
+                                {% if file[2] == username %}
+                                <a href="{{ url_for('hub_delete', file_id=file[0]) }}" class="btn btn-small btn-danger" style="text-decoration: none;" onclick="return confirm('Remove from Hub?')">Remove</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not hub_files %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No files in the Network Hub yet. Be the first to broadcast!</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer class="app-footer fade-in">
+        <div class="footer-content">
+            <p>&copy; 2026 SENDRIX. All rights reserved.</p>
+            <p>About: Advanced Secure File Transfer Protocol</p>
+            <p>Dev: ajkrishna002@gmail.com | Insta: <a href="https://instagram.com/jidkrsh" target="_blank">@jidkrsh</a></p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        const hubFileInput = document.getElementById('hub-file-input');
+        const hubFileBtn = document.getElementById('hub-file-btn');
+        if (hubFileInput) {
+            hubFileInput.addEventListener('change', () => {
+                if (hubFileInput.files.length) {
+                    if (hubFileInput.files.length > 1) {
+                        hubFileBtn.innerText = `${hubFileInput.files.length} files selected`;
+                    } else {
+                        hubFileBtn.innerText = hubFileInput.files[0].name;
+                    }
+                }
+            });
+        }
+
+        // Auto-refresh hub every 5 seconds to show new broadcasts
+        setInterval(() => {
+            fetch(window.location.href)
+                .then(r => r.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newTable = doc.querySelector('.table-container');
+                    const currentTable = document.querySelector('.table-container');
+                    if (newTable && currentTable && newTable.innerHTML !== currentTable.innerHTML) {
+                        currentTable.innerHTML = newTable.innerHTML;
+                    }
+                }).catch(() => {});
+        }, 5000);
+    </script>
+</body>
+</html>

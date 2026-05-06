@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retrieved Text | Sendrix</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container fade-in" style="width: 100%; max-width: 600px; margin: 0;">
+        <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem; text-align: center;">SENDRIX</h2>
+        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem;">Secure Clipboard Retrieval</p>
+        
+        <div style="background: rgba(0,0,0,0.4); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; white-space: pre-wrap; word-break: break-all; border: 1px solid rgba(255,255,255,0.05); min-height: 150px; font-size: 1.1rem; line-height: 1.5; color: white;" id="retrieved-text">{{ retrieved_text }}</div>
+        
+        <button onclick="copyToClipboard()" class="btn btn-success" style="width: 100%; font-size: 1.1rem; padding: 1rem;">Copy to Clipboard</button>
+    </div>
+
+    <script>
+        function copyToClipboard() {
+            const text = document.getElementById('retrieved-text').innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy text. Please select it manually.');
+            });
+        }
+    </script>
+</body>
+</html>

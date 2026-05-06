@@ -1,0 +1,95 @@
+<!-- Received Files -->
+<h2 style="text-align: left; margin-bottom: 1rem; font-size: 1.8rem; background: none; -webkit-text-fill-color: var(--text-primary);">Inbox</h2>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Sender</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in received %}
+            <tr>
+                <td data-label="Filename" style="font-weight: 600;">
+                    {{ file[1] }}
+                    {% if file[8] == 1 %}
+                    <span title="Burn After Reading" style="margin-left: 0.5rem; font-size: 1.2rem;">💥</span>
+                    {% endif %}
+                </td>
+                <td data-label="Sender" style="color: var(--text-secondary);">{{ file[2] }}</td>
+                <td data-label="Date" style="color: var(--text-secondary); font-size: 0.9rem;">{{ file[5] }}</td>
+                <td data-label="Status">
+                    <span class="status-badge status-{{ file[4] }}">
+                        {{ file[4] }}
+                    </span>
+                </td>
+                <td data-label="Action">
+                    <div class="actions">
+                        {% if file[4] == 'pending' %}
+                        <a href="{{ url_for('file_action', file_id=file[0], action='accept') }}" class="btn btn-small btn-success" style="text-decoration: none;">Accept</a>
+                        <a href="{{ url_for('file_action', file_id=file[0], action='reject') }}" class="btn btn-small btn-danger" style="text-decoration: none;">Reject</a>
+                        {% elif file[4] == 'accept' %}
+                        <a href="{{ url_for('vault', file_id=file[0]) }}" class="btn btn-small" style="text-decoration: none;">{% if file[9] %}🔒 Download{% else %}Download{% endif %}</a>
+                        <a href="{{ url_for('delete_inbox', file_id=file[0]) }}" class="btn btn-small btn-danger" style="text-decoration: none;" onclick="return confirm('Clear this file from your inbox?');">Clear</a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not received %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-secondary);">No files received yet.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- My Uploads -->
+<h2 style="text-align: left; margin-bottom: 1rem; font-size: 1.8rem; margin-top: 4rem; background: none; -webkit-text-fill-color: var(--text-primary);">Sent Files</h2>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Recipient</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in my_uploads %}
+            <tr>
+                <td data-label="Filename" style="font-weight: 600;">
+                    {{ file[1] }}
+                    {% if file[8] == 1 %}
+                    <span title="Burn After Reading" style="margin-left: 0.5rem; font-size: 1.2rem;">💥</span>
+                    {% endif %}
+                </td>
+                <td data-label="Recipient" style="color: var(--text-secondary);">{{ file[3] }}</td>
+                <td data-label="Date" style="color: var(--text-secondary); font-size: 0.9rem;">{{ file[5] }}</td>
+                <td data-label="Status">
+                    <span class="status-badge status-{{ file[4] }}">
+                        {{ file[4] }}
+                    </span>
+                </td>
+                <td data-label="Action">
+                    {% if file[4] == 'pending' %}
+                    <a href="{{ url_for('cancel_upload', file_id=file[0]) }}" class="btn btn-small btn-danger" style="text-decoration: none;">Cancel</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not my_uploads %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-secondary);">You haven't sent any files.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
