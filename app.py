@@ -97,6 +97,14 @@ def load_user(user_id):
     return User(user[0], user[1], user[2]) if user else None
 
 # ====================== ROUTES ======================
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory('static', 'js/sw.js', mimetype='application/javascript')
+
 @app.route('/')
 def home():
     return redirect(url_for('login'))
