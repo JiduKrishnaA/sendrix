@@ -11,13 +11,14 @@
         <div class="dash-header">
             <div>
                 <h1 style="margin-bottom: 0.2rem;">SENDRIX</h1>
-                <div style="color: var(--text-secondary); font-size: 1.1rem; letter-spacing: 0;">Welcome, {{ username }}</div>
+                <div style="color: var(--text-secondary); font-size: 1.1rem; letter-spacing: 0;">Welcome, {{ name or username }}</div>
             </div>
             <div style="display: flex; gap: 1rem;">
                 <a href="{{ url_for('upload') }}" class="btn btn-small" style="text-decoration: none;">+ Upload File</a>
                 <a href="{{ url_for('hub') }}" class="btn btn-outline btn-small" style="text-decoration: none;">🌍 Hub</a>
                 <a href="{{ url_for('clipboard') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Clipboard</a>
                 <a href="{{ url_for('history') }}" class="btn btn-outline btn-small" style="text-decoration: none;">History</a>
+                <a href="{{ url_for('profile') }}" class="btn btn-outline btn-small" style="text-decoration: none;">⚙️ Settings</a>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline btn-small" style="text-decoration: none;">Logout</a>
             </div>
         </div>

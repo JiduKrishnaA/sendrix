@@ -6,6 +6,20 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import random
 import uuid
+import re
+
+def is_password_strong(password):
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter."
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter."
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one digit."
+    if not re.search(r'[^A-Za-z0-9]', password):
+        return False, "Password must contain at least one special character."
+    return True, ""
 
 def get_db():
     conn = sqlite3.connect('users.db', timeout=20)
@@ -36,6 +50,10 @@ def init_db():
                     id INTEGER PRIMARY KEY, 
                     username TEXT UNIQUE, 
                     password TEXT)''')
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN name TEXT")
+    except sqlite3.OperationalError:
+        pass
     c.execute('''CREATE TABLE IF NOT EXISTS files (
                     id INTEGER PRIMARY KEY,
                     filename TEXT,
@@ -64,18 +82,19 @@ def init_db():
 init_db()
 
 class User(UserMixin):
-    def __init__(self, id, username):
+    def __init__(self, id, username, name=None):
         self.id = id
         self.username = username
+        self.name = name
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, username FROM users WHERE id=?", (user_id,))
+    c.execute("SELECT id, username, name FROM users WHERE id=?", (user_id,))
     user = c.fetchone()
     conn.close()
-    return User(user[0], user[1]) if user else None
+    return User(user[0], user[1], user[2]) if user else None
 
 # ====================== ROUTES ======================
 @app.route('/')
@@ -87,10 +106,17 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        name = request.form.get('name', '').strip() or None
+        
+        is_strong, msg = is_password_strong(password)
+        if not is_strong:
+            flash(msg)
+            return render_template('register.html')
+            
         conn = get_db()
         c = conn.cursor()
         try:
-            c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+            c.execute("INSERT INTO users (username, password, name) VALUES (?, ?, ?)", (username, password, name))
             conn.commit()
             flash("Registration successful! Please login.")
             return redirect(url_for('login'))
@@ -107,11 +133,11 @@ def login():
         password = request.form['password']
         conn = get_db()
         c = conn.cursor()
-        c.execute("SELECT id, username FROM users WHERE username=? AND password=?", (username, password))
+        c.execute("SELECT id, username, name FROM users WHERE username=? AND password=?", (username, password))
         user = c.fetchone()
         conn.close()
         if user:
-            login_user(User(user[0], user[1]))
+            login_user(User(user[0], user[1], user[2]))
             return redirect(url_for('dashboard'))
         flash("Invalid credentials!")
     return render_template('login.html')
@@ -137,7 +163,7 @@ def get_dashboard_data():
 @login_required
 def dashboard():
     my_uploads, received = get_dashboard_data()
-    return render_template('dashboard.html', my_uploads=my_uploads, received=received, username=current_user.username)
+    return render_template('dashboard.html', my_uploads=my_uploads, received=received, username=current_user.username, name=current_user.name)
 
 @app.route('/api/dashboard')
 @login_required
@@ -431,6 +457,100 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        new_name = request.form.get('name', '').strip() or None
+        new_username = request.form.get('username', '').strip()
+        new_password = request.form.get('password', '').strip()
+        
+        if not new_username:
+            flash("Username cannot be empty.")
+            return redirect(url_for('profile'))
+            
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Check if username is changed and if the new username already exists
+        if new_username != current_user.username:
+            c.execute("SELECT id FROM users WHERE username=?", (new_username,))
+            if c.fetchone():
+                conn.close()
+                flash("Username already exists.")
+                return redirect(url_for('profile'))
+                
+            # Perform cascading updates on username references
+            old_username = current_user.username
+            c.execute("UPDATE files SET uploader=? WHERE uploader=?", (new_username, old_username))
+            c.execute("UPDATE files SET recipient=? WHERE recipient=?", (new_username, old_username))
+            c.execute("UPDATE hub SET uploader=? WHERE uploader=?", (new_username, old_username))
+            c.execute("UPDATE clipboard SET uploader=? WHERE uploader=?", (new_username, old_username))
+        
+        # Update user record
+        if new_password:
+            is_strong, msg = is_password_strong(new_password)
+            if not is_strong:
+                flash(msg)
+                return redirect(url_for('profile'))
+            c.execute("UPDATE users SET name=?, username=?, password=? WHERE id=?", (new_name, new_username, new_password, current_user.id))
+        else:
+            c.execute("UPDATE users SET name=?, username=? WHERE id=?", (new_name, new_username, current_user.id))
+            
+        conn.commit()
+        conn.close()
+        
+        # Re-login or update the session/current_user
+        current_user.name = new_name
+        current_user.username = new_username
+        
+        flash("Profile updated successfully!")
+        return redirect(url_for('dashboard'))
+        
+    return render_template('profile.html', username=current_user.username, name=current_user.name)
+
+@app.route('/delete_account', methods=['POST'])
+@login_required
+def delete_account():
+    username = current_user.username
+    user_id = current_user.id
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # 1. Fetch all physical files uploaded by this user to delete them from disk
+    c.execute("SELECT filename FROM files WHERE uploader=?", (username,))
+    user_files = [row[0] for row in c.fetchall()]
+    
+    # Also fetch files they shared in the hub
+    c.execute("SELECT filename FROM hub WHERE uploader=?", (username,))
+    user_hub_files = [row[0] for row in c.fetchall()]
+    
+    all_filenames = set(user_files + user_hub_files)
+    
+    # Delete from disk
+    for fname in all_filenames:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+                
+    # 2. Delete all records from tables
+    c.execute("DELETE FROM files WHERE uploader=? OR recipient=?", (username, username))
+    c.execute("DELETE FROM hub WHERE uploader=?", (username,))
+    c.execute("DELETE FROM clipboard WHERE uploader=?", (username,))
+    c.execute("DELETE FROM users WHERE id=?", (user_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    # 3. Logout the user and redirect to registration/login
+    logout_user()
+    flash("Your account and all associated data have been permanently deleted.")
+    return redirect(url_for('register'))
+
 # ====================== VAULT ROUTES ======================
 @app.route('/vault/<int:file_id>')
 @login_required
@@ -630,13 +750,114 @@ def admin_dashboard():
                     'is_orphan': is_orphan,
                 })
 
+    # Fetch all users
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, name, password FROM users")
+    users = [{'id': row[0], 'username': row[1], 'name': row[2], 'password': row[3]} for row in c.fetchall()]
+    conn.close()
+
     return render_template('admin_dashboard.html',
         files=files,
         total_files=len(files),
         total_size=get_file_size_str(total_bytes),
         orphan_count=orphan_count,
         db_file_count=db_file_count,
+        users=users,
     )
+
+@app.route('/admin/edit-user/<int:user_id>', methods=['POST'])
+@admin_required
+def admin_edit_user(user_id):
+    new_name = request.form.get('name', '').strip() or None
+    new_username = request.form.get('username', '').strip()
+    new_password = request.form.get('password', '').strip()
+    
+    if not new_username:
+        flash("Username cannot be empty.")
+        return redirect(url_for('admin_dashboard'))
+        
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check if username is changed and if the new username already exists for another user
+    c.execute("SELECT username FROM users WHERE id=?", (user_id,))
+    user_record = c.fetchone()
+    if not user_record:
+        conn.close()
+        flash("User not found.")
+        return redirect(url_for('admin_dashboard'))
+        
+    old_username = user_record[0]
+    
+    if new_username != old_username:
+        c.execute("SELECT id FROM users WHERE username=? AND id!=?", (new_username, user_id))
+        if c.fetchone():
+            conn.close()
+            flash("Username already exists.")
+            return redirect(url_for('admin_dashboard'))
+            
+        # Perform cascading updates on username references
+        c.execute("UPDATE files SET uploader=? WHERE uploader=?", (new_username, old_username))
+        c.execute("UPDATE files SET recipient=? WHERE recipient=?", (new_username, old_username))
+        c.execute("UPDATE hub SET uploader=? WHERE uploader=?", (new_username, old_username))
+        c.execute("UPDATE clipboard SET uploader=? WHERE uploader=?", (new_username, old_username))
+        
+    # Validate password if changed
+    if new_password:
+        is_strong, msg = is_password_strong(new_password)
+        if not is_strong:
+            conn.close()
+            flash(f"Error updating user: {msg}")
+            return redirect(url_for('admin_dashboard'))
+        c.execute("UPDATE users SET name=?, username=?, password=? WHERE id=?", (new_name, new_username, new_password, user_id))
+    else:
+        c.execute("UPDATE users SET name=?, username=? WHERE id=?", (new_name, new_username, user_id))
+        
+    conn.commit()
+    conn.close()
+    flash("User credentials updated successfully!")
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@admin_required
+def admin_delete_user(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT username FROM users WHERE id=?", (user_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        flash("User not found.")
+        return redirect(url_for('admin_dashboard'))
+        
+    username = row[0]
+    
+    # Delete physical files uploaded by this user
+    c.execute("SELECT filename FROM files WHERE uploader=?", (username,))
+    user_files = [r[0] for r in c.fetchall()]
+    c.execute("SELECT filename FROM hub WHERE uploader=?", (username,))
+    user_hub_files = [r[0] for r in c.fetchall()]
+    all_filenames = set(user_files + user_hub_files)
+    
+    for fname in all_filenames:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+                
+    # Delete DB records cascadingly
+    c.execute("DELETE FROM files WHERE uploader=? OR recipient=?", (username, username))
+    c.execute("DELETE FROM hub WHERE uploader=?", (username,))
+    c.execute("DELETE FROM clipboard WHERE uploader=?", (username,))
+    c.execute("DELETE FROM users WHERE id=?", (user_id,))
+    
+    conn.commit()
+    conn.close()
+    flash(f"Permanently deleted user '{username}' and all associated files/data.")
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/delete/<path:filename>', methods=['POST'])
 @admin_required
