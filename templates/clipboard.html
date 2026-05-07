@@ -5,8 +5,276 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clipboard | Sendrix</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* ── Easter Egg Overlay Base ─────────────────────── */
+        .ee-overlay {
+            display: none;
+            opacity: 0;
+            transition: opacity .3s ease;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0,0,0,.85);
+            backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        /* ── Snake overlay ───────────────────────────────── */
+        #snake-overlay { flex-direction: column; gap: 0; }
+        .snake-card {
+            background: linear-gradient(135deg,#0a1f0a,#091508);
+            border: 1px solid #00ff6633;
+            border-radius: 20px;
+            padding: 1.2rem 1.5rem;
+            box-shadow: 0 0 60px #00ff4422, 0 0 120px #00ff2211;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .8rem;
+            max-width: 95vw;
+        }
+        .snake-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            gap: 1rem;
+        }
+        .snake-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: .1em;
+            color: #00ff88;
+            text-shadow: 0 0 20px #00ff8888;
+        }
+        .snake-score-wrap {
+            font-size: 1.1rem;
+            color: #aaffaa;
+            font-weight: 600;
+        }
+        .snake-score-wrap span { color: #00ff88; font-size: 1.4rem; }
+        #snake-canvas {
+            border-radius: 12px;
+            border: 1px solid #00ff6633;
+            box-shadow: 0 0 30px #00ff4411;
+        }
+        /* Mobile D-Pad controller styles */
+        .snake-dpad {
+            display: grid;
+            grid-template-areas: 
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: .5rem;
+            margin: .5rem 0;
+            width: 150px;
+            height: 150px;
+        }
+        .dpad-btn {
+            background: rgba(0,255,100,.08);
+            border: 1px solid rgba(0,255,100,.25);
+            color: #00ff88;
+            font-size: 1.4rem;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            transition: all 0.1s ease;
+        }
+        .dpad-btn:active {
+            background: rgba(0,255,100,.25);
+            transform: scale(0.92);
+            box-shadow: 0 0 12px rgba(0,255,136,0.5);
+        }
+        #dpad-up { grid-area: up; }
+        #dpad-down { grid-area: down; }
+        #dpad-left { grid-area: left; }
+        #dpad-right { grid-area: right; }
+
+        .snake-btns { display: flex; gap: .8rem; }
+        .snake-hint { color: #446644; font-size: .8rem; text-align: center; }
+        .ee-btn {
+            padding: .45rem 1.1rem;
+            border-radius: 8px;
+            border: 1px solid #00ff6644;
+            background: rgba(0,255,100,.07);
+            color: #00ff88;
+            cursor: pointer;
+            font-size: .9rem;
+            font-weight: 600;
+            transition: all .2s;
+        }
+        .ee-btn:hover { background: rgba(0,255,100,.18); box-shadow: 0 0 12px #00ff8844; }
+        .ee-btn.danger { border-color: #ff444466; color: #ff8888; background: rgba(255,60,60,.07); }
+        .ee-btn.danger:hover { background: rgba(255,60,60,.18); }
+
+        /* ── Alchemy overlay ─────────────────────────────── */
+        .alchemy-card {
+            background: linear-gradient(135deg,#12081e,#1a0d2e);
+            border: 1px solid #9b59b644;
+            border-radius: 20px;
+            padding: 1.4rem 1.6rem;
+            box-shadow: 0 0 60px #9b59b633, 0 0 120px #6c3483aa;
+            width: min(680px,96vw);
+            max-height: 90vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .alchemy-header {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .alchemy-title {
+            font-size: 1.7rem; font-weight: 800; letter-spacing: .05em;
+            background: linear-gradient(90deg,#d4a8ff,#ff9ef7,#ff6fd8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: none;
+        }
+        /* Tabs */
+        #alchemy-tabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+        .alchemy-tab {
+            padding: .3rem .65rem; border-radius: 8px; border: 1px solid #ffffff18;
+            background: rgba(255,255,255,.05); color: #ccc; cursor: pointer;
+            font-size: 1.2rem; transition: all .15s;
+        }
+        .alchemy-tab.active, .alchemy-tab:hover {
+            background: rgba(155,89,182,.25); border-color: #9b59b666; color: #fff;
+        }
+        /* Grid */
+        #alchemy-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(46px,1fr)); gap: .4rem;
+        }
+        .alchemy-emoji-btn {
+            padding: .5rem; border-radius: 10px; border: 1px solid #ffffff11;
+            background: rgba(255,255,255,.04); font-size: 1.5rem;
+            cursor: pointer; transition: all .15s; line-height: 1;
+        }
+        .alchemy-emoji-btn:hover {
+            background: rgba(155,89,182,.3); border-color: #9b59b688;
+            transform: scale(1.15); box-shadow: 0 0 10px #9b59b655;
+        }
+        /* Slots + combine */
+        .alchemy-lab {
+            display: flex; align-items: center; justify-content: center;
+            gap: 1rem; flex-wrap: wrap;
+        }
+        .alchemy-slot {
+            width: 72px; height: 72px; border-radius: 14px;
+            border: 2px dashed #9b59b666; background: rgba(155,89,182,.1);
+            font-size: 2.4rem; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            transition: all .2s; color: #9b59b699;
+        }
+        .alchemy-slot:hover { border-color: #d48dff; background: rgba(155,89,182,.2); }
+        .alchemy-plus { font-size: 1.8rem; color: #9b59b6; }
+        .alchemy-combine-btn {
+            padding: .7rem 1.6rem; border-radius: 12px;
+            background: linear-gradient(135deg,#8e44ad,#9b59b6);
+            border: none; color: #fff; font-size: 1rem; font-weight: 700;
+            cursor: pointer; transition: all .2s;
+            box-shadow: 0 4px 20px #9b59b644;
+        }
+        .alchemy-combine-btn:hover:not(:disabled) {
+            transform: translateY(-2px); box-shadow: 0 8px 28px #9b59b677;
+        }
+        .alchemy-combine-btn:disabled { opacity: .4; cursor: not-allowed; }
+        /* Result */
+        #alchemy-result {
+            min-height: 80px; border-radius: 14px;
+            background: rgba(255,255,255,.04); border: 1px solid #ffffff11;
+            padding: 1rem; text-align: center; transition: all .3s;
+        }
+        .alchemy-result-emoji {
+            font-size: 3.5rem; animation: popIn .4s cubic-bezier(.175,.885,.32,1.275);
+        }
+        @keyframes popIn {
+            from { transform: scale(0) rotate(-20deg); opacity: 0; }
+            to   { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        .alchemy-result-name { font-size: 1.2rem; font-weight: 700; color: #d4a8ff; margin-top: .3rem; }
+        .alchemy-result-desc { font-size: .85rem; color: #aaa; margin-top: .2rem; }
+        .alchemy-use-btn {
+            margin-top: .6rem; padding: .35rem .9rem; border-radius: 8px;
+            border: 1px solid #9b59b666; background: rgba(155,89,182,.15);
+            color: #d4a8ff; cursor: pointer; font-size: .85rem; transition: all .15s;
+        }
+        .alchemy-use-btn:hover { background: rgba(155,89,182,.3); }
+        /* Spinner */
+        .alchemy-spinner { font-size: 2rem; display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* History */
+        #alchemy-history { display: flex; flex-direction: column; gap: .3rem; }
+        .alchemy-hist-row {
+            font-size: .82rem; color: #888; padding: .3rem .6rem;
+            border-radius: 6px; background: rgba(255,255,255,.03);
+        }
+        .alchemy-hist-row strong { color: #d4a8ff; font-size: 1.1em; }
+        .alchemy-hist-row em { color: #aaa; font-style: normal; }
+        .alchemy-lab-row { display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+    </style>
 </head>
 <body>
+    <!-- ═══════════════════════════════════════════════
+         EASTER EGG 1 — 3D SNAKE GAME OVERLAY
+    ════════════════════════════════════════════════ -->
+    <div id="snake-overlay" class="ee-overlay">
+        <div class="snake-card">
+            <div class="snake-header">
+                <div class="snake-title">🐍 CoBrA SNAKE</div>
+                <div class="snake-score-wrap">Score: <span id="snake-score">0</span></div>
+            </div>
+            <canvas id="snake-canvas"></canvas>
+            <div class="snake-dpad">
+                <button id="dpad-up" class="dpad-btn">▲</button>
+                <button id="dpad-left" class="dpad-btn">◀</button>
+                <button id="dpad-right" class="dpad-btn">▶</button>
+                <button id="dpad-down" class="dpad-btn">▼</button>
+            </div>
+            <div class="snake-btns">
+                <button id="snake-restart-btn" class="ee-btn">↺ Restart (R)</button>
+                <button id="snake-close-btn" class="ee-btn danger">✕ Close (Esc)</button>
+            </div>
+            <div class="snake-hint">WASD / Arrow Keys to move</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         EASTER EGG 2 — EMOJI ALCHEMY OVERLAY
+    ════════════════════════════════════════════════ -->
+    <div id="alchemy-overlay" class="ee-overlay">
+        <div class="alchemy-card">
+            <div class="alchemy-header">
+                <div class="alchemy-title">⚗️ Emoji Alchemy</div>
+                <button id="alchemy-close-btn" class="ee-btn danger">✕ Close</button>
+            </div>
+
+            <div id="alchemy-tabs"></div>
+            <div id="alchemy-grid"></div>
+
+            <div class="alchemy-lab">
+                <div class="alchemy-lab-row">
+                    <button id="alchemy-slot1" class="alchemy-slot" title="Click to clear">+</button>
+                    <span class="alchemy-plus">+</span>
+                    <button id="alchemy-slot2" class="alchemy-slot" title="Click to clear">+</button>
+                    <button id="alchemy-combine-btn" class="alchemy-combine-btn" disabled>✨ Combine!</button>
+                    <button id="alchemy-clear-btn" class="ee-btn" disabled>🗑️ Clear</button>
+                </div>
+            </div>
+
+            <div id="alchemy-result"></div>
+
+            <div id="alchemy-history"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         MAIN CLIPBOARD PAGE
+    ════════════════════════════════════════════════ -->
     <div class="dashboard-container fade-in">
         <div class="dash-header">
             <div>
@@ -29,7 +297,6 @@
         {% endwith %}
 
         <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-            
             <!-- Share Text Section -->
             <div class="glass-container" style="flex: 1; margin: 0; min-width: 300px; max-width: 100%;">
                 <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">Share Text</h2>
@@ -37,30 +304,23 @@
                     <div class="form-group">
                         <textarea name="text_content" rows="6" placeholder="Paste your text here to share..." style="width: 100%; padding: 1rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; outline: none; font-family: inherit; resize: vertical;" required></textarea>
                     </div>
-                    <button type="submit" class="btn">Generate PIN & QR Code</button>
+                    <button type="submit" class="btn">Generate PIN &amp; QR Code</button>
                 </form>
 
                 {% if generated_code %}
                 <div style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem; text-align: center;">
                     <h3 style="margin-bottom: 0.5rem; color: var(--text-primary); font-size: 1.5rem;">Your PIN: <span style="color: var(--accent-color); letter-spacing: 2px;">{{ generated_code }}</span></h3>
                     <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">Scan with your phone to instantly copy:</p>
-                    
                     <div id="qrcode" style="display: flex; justify-content: center; background: white; padding: 1rem; border-radius: 12px; width: max-content; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.3);"></div>
                 </div>
-                
-                <!-- Ultra-lightweight QR Code Generator -->
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
                 <script>
                     window.onload = function() {
-                        // Use request.host_url to automatically get the local network IP
                         const qrUrl = "{{ request.host_url }}clipboard/{{ generated_code }}";
                         new QRCode(document.getElementById("qrcode"), {
-                            text: qrUrl,
-                            width: 200,
-                            height: 200,
-                            colorDark : "#000000",
-                            colorLight : "#ffffff",
-                            correctLevel : QRCode.CorrectLevel.M
+                            text: qrUrl, width: 200, height: 200,
+                            colorDark: "#000000", colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.M
                         });
                     };
                 </script>
@@ -70,10 +330,17 @@
             <!-- Receive Text Section -->
             <div class="glass-container" style="flex: 1; margin: 0; min-width: 300px; max-width: 100%;">
                 <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">Receive Text</h2>
-                
-                <form action="{{ url_for('api_clipboard_retrieve') }}" method="POST">
+
+                <form action="{{ url_for('api_clipboard_retrieve') }}" method="POST" id="retrieve-form">
                     <div class="form-group">
-                        <input type="text" name="code" placeholder="Enter 4-digit PIN" maxlength="4" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;" required autocomplete="off">
+                        <input
+                            type="text"
+                            id="easter-code-input"
+                            name="code"
+                            placeholder="Enter 4-digit PIN"
+                            maxlength="9"
+                            style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;"
+                            autocomplete="off">
                     </div>
                     <button type="submit" class="btn btn-outline">Retrieve Text</button>
                 </form>
@@ -86,10 +353,9 @@
                 </div>
                 {% endif %}
             </div>
-
         </div>
     </div>
-    
+
     <footer class="app-footer fade-in">
         <div class="footer-content">
             <p>&copy; 2026 SENDRIX. All rights reserved.</p>
@@ -99,16 +365,20 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/easter_eggs.js') }}"></script>
     <script>
         function copyToClipboard() {
             const text = document.getElementById('retrieved-text').innerText;
             navigator.clipboard.writeText(text).then(() => {
                 alert('Copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
-                alert('Failed to copy text.');
-            });
+            }).catch(() => alert('Failed to copy text.'));
         }
+
+        // Prevent form submission when easter egg code typed
+        document.getElementById('retrieve-form').addEventListener('submit', function(e) {
+            const v = document.getElementById('easter-code-input').value;
+            if (v === 'CoBrA' || v === 'HappyFace') e.preventDefault();
+        });
     </script>
 </body>
 </html>

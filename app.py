@@ -677,6 +677,124 @@ def hub_delete(file_id):
     conn.close()
     return redirect(url_for('hub'))
 
+# ====================== EASTER EGG: EMOJI ALCHEMY ======================
+
+# Fallback combo lookup (used when GEMINI_API_KEY is not set)
+EMOJI_FALLBACK = {
+    # User requested combos
+    ("🪵", "🔥"): ("💨", "Smoke", "Wood burns to create smoke"),
+    ("🤴", "🐟"): ("🎣", "Kingfisher", "A royal fisher of the waters"),
+    ("🦇", "👦"): ("🏏", "Batsman", "Bat plus boy equals cricket hero"),
+    ("🦶", "⚽"): ("🏈", "Football", "Foot meets ball in sport"),
+    # Nature
+    ("🌊", "🔥"): ("💨", "Steam", "Water meets fire creates steam"),
+    ("🌱", "💧"): ("🌿", "Plant", "Water and seed grow a plant"),
+    ("🌱", "🔥"): ("🍂", "Ash", "Fire turns seedling to ash"),
+    ("🌍", "💧"): ("🌊", "Ocean", "Earth covered in water"),
+    ("🌍", "🔥"): ("🌋", "Volcano", "Fire within the earth"),
+    ("🌍", "💨"): ("🌪️", "Tornado", "Wind across the earth"),
+    ("❄️", "🔥"): ("💧", "Water", "Ice melted by fire"),
+    ("❄️", "💧"): ("🧊", "Ice", "Cold water becomes ice"),
+    ("☀️", "🌧️"): ("🌈", "Rainbow", "Sun after rain"),
+    ("🌙", "⭐"): ("🌌", "Galaxy", "Moon and stars form a galaxy"),
+    ("🌊", "🌙"): ("🌊", "Tide", "Moon controls the tides"),
+    # Animals
+    ("🦁", "🐯"): ("🐆", "Leopard", "Lion and tiger combine spots"),
+    ("🐺", "🌙"): ("🐺", "Werewolf", "Wolf under moonlight transforms"),
+    ("🐟", "🌊"): ("🐬", "Dolphin", "Fish masters the ocean"),
+    ("🦅", "⭐"): ("🦸", "Hero", "Eagle eyes meet star power"),
+    ("🐝", "🌸"): ("🍯", "Honey", "Bee collects pollen for honey"),
+    ("🐛", "🍃"): ("🦋", "Butterfly", "Caterpillar eats leaf, transforms"),
+    ("🐊", "👑"): ("🦖", "Dinosaur King", "Croc crowned as ancient ruler"),
+    # Food & Drink
+    ("🍎", "🔥"): ("🥧", "Apple Pie", "Baked apple becomes pie"),
+    ("☕", "🥛"): ("🧋", "Latte", "Coffee meets milk"),
+    ("🍋", "💧"): ("🥤", "Lemonade", "Lemon juice with water"),
+    ("🌾", "💧"): ("🍺", "Beer", "Grain and water fermented"),
+    ("🍇", "💧"): ("🍷", "Wine", "Grapes and water aged to wine"),
+    ("🥚", "🔥"): ("🍳", "Fried Egg", "Egg on fire becomes breakfast"),
+    ("🧁", "👑"): ("🎂", "Birthday Cake", "A cupcake fit for royalty"),
+    # Objects & Tech
+    ("⚡", "💧"): ("🔌", "Electric", "Power from water and lightning"),
+    ("🔥", "💨"): ("🕯️", "Candle", "Fire and air make a candle"),
+    ("📱", "💡"): ("💻", "Computer", "Phone plus ideas equal laptop"),
+    ("📚", "🔥"): ("🧠", "Knowledge", "Books fuel the mind"),
+    ("🔑", "🏠"): ("🏡", "Home", "Key unlocks a house into home"),
+    ("⚙️", "❤️"): ("🤖", "Robot Heart", "Machine with a soul"),
+    ("💎", "🔥"): ("✨", "Spark", "Diamond refracts fire to sparkle"),
+    ("🎵", "❤️"): ("🎶", "Love Song", "Music from the heart"),
+    # People & Magic
+    ("👨", "🔬"): ("🧑‍🔬", "Scientist", "Man plus lab becomes scientist"),
+    ("👸", "🐸"): ("💋", "Kiss", "Princess kisses the frog"),
+    ("🧙", "📚"): ("🔮", "Oracle", "Wizard reads ancient books"),
+    ("👶", "⏳"): ("🧒", "Child", "Baby grows with time"),
+    ("💀", "🌹"): ("🌹", "Memento", "Death and beauty intertwine"),
+    ("🧑", "🚀"): ("👨‍🚀", "Astronaut", "Human reaching for the stars"),
+    # Places
+    ("🏝️", "🌴"): ("🌺", "Tropical Paradise", "Island with palm trees blooms"),
+    ("🏔️", "❄️"): ("🎿", "Ski Resort", "Mountain covered in snow"),
+    ("🌆", "🌙"): ("🌃", "Night City", "City under the moonlight"),
+    ("🏛️", "⏳"): ("🗿", "Ancient Ruins", "Old building eroded by time"),
+}
+
+def _normalize_emoji_key(e1, e2):
+    """Try both orderings of a combo key."""
+    return (e1, e2) if (e1, e2) in EMOJI_FALLBACK else ((e2, e1) if (e2, e1) in EMOJI_FALLBACK else None)
+
+@app.route('/api/emoji-alchemy', methods=['POST'])
+@login_required
+def api_emoji_alchemy():
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    emoji1 = (data.get('emoji1') or '').strip()
+    emoji2 = (data.get('emoji2') or '').strip()
+
+    if not emoji1 or not emoji2:
+        return jsonify({'error': 'Two emojis required'}), 400
+
+    # Try Gemini AI first
+    api_key = os.environ.get('GEMINI_API_KEY', '')
+    if api_key:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            prompt = (
+                f"You are an emoji alchemist. A user is combining {emoji1} and {emoji2}. "
+                f"Determine a creative, fun result emoji that represents the combination. "
+                f"Respond with ONLY valid JSON, no markdown, no code block, exactly: "
+                f'{{\"result\": \"<single emoji>\", \"name\": \"<result name>\", \"description\": \"<one short sentence>\"}}'
+            )
+            resp = model.generate_content(prompt)
+            import json
+            text = resp.text.strip().strip('`').strip()
+            if text.startswith('json'):
+                text = text[4:].strip()
+            result_data = json.loads(text)
+            return jsonify(result_data)
+        except Exception as e:
+            pass  # Fall through to lookup table
+
+    # Fallback: lookup table
+    key = _normalize_emoji_key(emoji1, emoji2)
+    if key:
+        r, n, d = EMOJI_FALLBACK[key]
+        return jsonify({'result': r, 'name': n, 'description': d})
+
+    # Generic creative fallback based on category hints
+    generic_results = [
+        ("✨", "Magic Fusion", "Two emojis combine into pure magic"),
+        ("🌟", "Star Combo", "A brilliant new combination!"),
+        ("💥", "Explosion", "These two make quite the reaction"),
+        ("🎉", "Celebration", "A surprising and joyful combination"),
+        ("🔮", "Mystery", "An alchemical mystery unfolds"),
+    ]
+    import hashlib
+    h = int(hashlib.md5((emoji1 + emoji2).encode()).hexdigest(), 16) % len(generic_results)
+    r, n, d = generic_results[h]
+    return jsonify({'result': r, 'name': n, 'description': d})
+
+
 # ====================== ADMIN ROUTES ======================
 def admin_required(f):
     """Decorator that ensures the admin is logged in via session."""
